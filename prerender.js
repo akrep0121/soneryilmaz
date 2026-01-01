@@ -18,9 +18,8 @@ const firebaseConfig = {
 export default async function handler(req, res) {
   const startTime = Date.now();
   
-  // Tüm request bilgilerini log'la
   console.log('='.repeat(60));
-  console.log('PRERENDER REQUEST');
+  console.log('PRERENDER REQUEST - BOT DETECTION DISABLED FOR TESTING');
   console.log('='.repeat(60));
   console.log('req.url:', req.url);
   console.log('req.method:', req.method);
@@ -32,18 +31,11 @@ export default async function handler(req, res) {
   // Vercel'de rewrite yapıldığında, orijinal URL birkaç yerde olabilir
   const originalUrl = req.headers['x-vercel-original-uri'] || req.headers['referer'] || req.url;
   
-  // Bot detection
-  const isBot = detectBot(req.headers['user-agent']);
-  console.log('Bot detected:', isBot);
+  console.log('Original URL:', originalUrl);
   
-  // Bot değilse 404 dön
-  if (!isBot) {
-    console.log('❌ Not a bot - returning 404');
-    console.log('='.repeat(60));
-    return res.status(404).json({ error: 'Not Found', message: 'This endpoint is only for bots' });
-  }
-  
-  console.log('✅ Bot detected - processing...');
+  // Bot detection YAPMAYACAĞIZ - test için herkes için çalışacak
+  const isBot = true; 
+  console.log('Bot detection: DISABLED (forcing true for testing)');
   
   try {
     // Blog slug'ını çıkar
@@ -51,12 +43,18 @@ export default async function handler(req, res) {
     const slug = slugMatch ? slugMatch[1] : null;
     
     console.log('Extracted slug:', slug);
-    console.log('Original URL used:', originalUrl);
     
     if (!slug) {
       console.log('❌ No slug found');
       console.log('='.repeat(60));
-      return res.status(404).json({ error: 'No slug found', url: originalUrl });
+      
+      // Debug amaçlı, slug yoksa mevcut blog listesini döndür
+      return res.json({
+        error: 'No slug found',
+        originalUrl,
+        url: req.url,
+        note: 'Please access a blog URL like /blog/some-slug'
+      });
     }
     
     // Blog post'unu Firebase'ten çek
@@ -66,7 +64,11 @@ export default async function handler(req, res) {
     if (!blogPost) {
       console.log('❌ Blog post not found');
       console.log('='.repeat(60));
-      return res.status(404).json({ error: 'Blog post not found', slug });
+      return res.json({ 
+        error: 'Blog post not found', 
+        slug,
+        note: 'Check if the slug exists in Firebase'
+      });
     }
     
     console.log('✅ Blog post found:', blogPost.title);
@@ -88,31 +90,33 @@ export default async function handler(req, res) {
     
     let finalHtml = indexHtml;
     
-    // Meta tag'leri güncelle
+    // Meta tag'leri güncelle - basit replace
     finalHtml = finalHtml
-      .replace(/<title>[^<]*<\/title>/i, `<title>${escapeHtml(newTitle)}</title>`)
+      .replace(/<title>[^<]*<\/title>/i, `<title>${newTitle}</title>`)
       .replace(/name="description"[^>]*content="[^"]*"[^>]*>/i, 
-              `name="description" id="site-description" content="${escapeHtml(summary)}"`)
+              `name="description" id="site-description" content="${summary}"`)
       .replace(/name="keywords"[^>]*content="[^"]*"[^>]*>/i, 
-              `name="keywords" id="site-keywords" content="${escapeHtml(blogPost.category)}, ${escapeHtml(blogPost.title)}, Soner Yılmaz"`)
+              `name="keywords" id="site-keywords" content="${blogPost.category}, ${blogPost.title}, Soner Yılmaz"`)
       .replace(/property="og:title"[^>]*content="[^"]*"[^>]*>/i, 
-              `property="og:title" id="og-title" content="${escapeHtml(newTitle)}"`)
+              `property="og:title" id="og-title" content="${newTitle}"`)
       .replace(/property="og:description"[^>]*content="[^"]*"[^>]*>/i, 
-              `property="og:description" id="og-description" content="${escapeHtml(summary)}"`)
+              `property="og:description" id="og-description" content="${summary}"`)
       .replace(/property="og:url"[^>]*content="[^"]*"[^>]*>/i, 
-              `property="og:url" id="og-url" content="${escapeHtml(postUrl)}"`)
+              `property="og:url" id="og-url" content="${postUrl}"`)
       .replace(/property="og:image"[^>]*content="[^"]*"[^>]*>/i, 
-              `property="og:image" id="og-image" content="${escapeHtml(blogPost.imageUrl)}"`)
+              `property="og:image" id="og-image" content="${blogPost.imageUrl}"`)
       .replace(/property="og:type"[^>]*content="[^"]*"[^>]*>/i, 
               `property="og:type" id="og-type" content="article"`)
       .replace(/name="twitter:title"[^>]*content="[^"]*"[^>]*>/i, 
-              `name="twitter:title" id="twitter-title" content="${escapeHtml(newTitle)}"`)
+              `name="twitter:title" id="twitter-title" content="${newTitle}"`)
       .replace(/name="twitter:description"[^>]*content="[^"]*"[^>]*>/i, 
-              `name="twitter:description" id="twitter-description" content="${escapeHtml(summary)}"`)
+              `name="twitter:description" id="twitter-description" content="${summary}"`)
       .replace(/name="twitter:image"[^>]*content="[^"]*"[^>]*>/i, 
-              `name="twitter:image" id="twitter-image" content="${escapeHtml(blogPost.imageUrl)}"`)
+              `name="twitter:image" id="twitter-image" content="${blogPost.imageUrl}"`)
       .replace(/rel="canonical"[^>]*href="[^"]*"[^>]*>/i, 
-              `rel="canonical" id="site-canonical" href="${escapeHtml(postUrl)}"`);
+              `rel="canonical" id="site-canonical" href="${postUrl}"`);
+    
+    console.log('✅ Meta tags updated');
     
     // JSON-LD Structured Data güncelle
     const schemaData = {
@@ -147,11 +151,13 @@ export default async function handler(req, res) {
     const autoOpenScript = `
         <script>
           window.autoOpenPostId = '${blogPost.id}';
-          window.autoOpenPostData = ${JSON.stringify(blogPost).replace(/</g, '\\x3c').replace(/>/g, '\\x3e').replace(/"/g, '&quot;')};
+          window.autoOpenPostData = ${JSON.stringify(blogPost)};
         </script>
       </head>`;
     
     finalHtml = finalHtml.replace('</head>', autoOpenScript);
+    
+    console.log('✅ Auto-open script added');
     
     // Browser'ı başlat
     console.log('Starting browser...');
@@ -232,16 +238,6 @@ export default async function handler(req, res) {
   }
 }
 
-function escapeHtml(text) {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
 async function getBlogPostBySlug(slug) {
   try {
     console.log('  Connecting to Firebase...');
@@ -253,7 +249,7 @@ async function getBlogPostBySlug(slug) {
     console.log('  Signing in...');
     await signInAnonymously(auth);
     
-    console.log('  Querying...');
+    console.log('  Querying for slug:', slug);
     const postsRef = collection(db, 'artifacts', appId, 'public', 'data', 'blogPosts');
     const q = query(postsRef, where('slug', '==', slug));
     const querySnapshot = await getDocs(q);
@@ -273,14 +269,4 @@ async function getBlogPostBySlug(slug) {
     console.error('  ❌ Firebase error:', error.message);
     return null;
   }
-}
-
-function detectBot(userAgent) {
-  if (!userAgent) return false;
-  const botPattern = /(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|ia_archiver|applebot|semrushbot|ahrefsbot|dotbot|mj12bot)/i;
-  return botPattern.test(userAgent) || 
-         userAgent.includes('Google-InspectionTool') ||
-         userAgent.includes('Googlebot-Image') ||
-         userAgent.includes('Mediapartners-Google') ||
-         userAgent.includes('AdsBot-Google');
 }
