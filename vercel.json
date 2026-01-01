@@ -13,12 +13,6 @@
       "destination": "/index.html"
     }
   ],
-  "functions": {
-    "api/prerender.js": {
-      "memory": 2048,
-      "maxDuration": 30
-    }
-  },
   "headers": [
     {
       "source": "/(.*)",
