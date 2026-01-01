@@ -1,21 +1,48 @@
 'use client';
-
 import { useEffect, useState, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, where } from 'firebase/firestore';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  imageUrl: string;
+  slug?: string;
+  createdAt?: any;
+  views?: number;
+}
+interface Comment {
+  id: string;
+  postId: string;
+  author: string;
+  text: string;
+  createdAt?: any;
+}
+interface Subscriber {
+  id: string;
+  email: string;
+  createdAt?: any;
+}
+interface SiteData {
+  name?: string;
+  role?: string;
+  profileImage?: string;
+  aboutText?: string;
+  heroTitle?: string;
+}
 export default function Home() {
-  const [posts, setPosts] = useState([]);
-  const [siteData, setSiteData] = useState({});
-  const [comments, setComments] = useState([]);
-  const [subscribers, setSubscribers] = useState([]);
-  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [siteData, setSiteData] = useState<SiteData>({});
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [currentCategory, setCurrentCategory] = useState('all');
   const [currentSort, setCurrentSort] = useState('newest');
   const [displayedPosts, setDisplayedPosts] = useState(9);
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingPostId, setEditingPostId] = useState(null);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
   
   const blogGridRef = useRef(null);
   const featuredPostRef = useRef(null);
