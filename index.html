@@ -362,7 +362,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, query, addDoc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, query, addDoc, setDoc, deleteDoc, serverTimestamp, getDocs, getDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDtN5CJ4fvWMCkGImJEMfKQrIiBdeKZKqI",
@@ -559,6 +559,50 @@
 
         async function loadInitialData() {
             try {
+                // Check if bot and URL has blog slug - load specific post first for SEO
+                const pathParts = window.location.pathname.split('/');
+                const urlPostId = new URLSearchParams(window.location.search).get('post');
+                const pathPostId = pathParts[1] === 'blog' ? pathParts[2] : null;
+                const postId = pathPostId || urlPostId;
+                const isBotUA = /(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|ia_archiver|applebot|semrushbot|ahrefsbot|dotbot|mj12bot)/i.test(navigator.userAgent);
+                
+                let botPost = null;
+                
+                // If bot and has blog URL, load that post first
+                if (isBotUA && postId) {
+                    console.log('Bot detected, loading blog post first:', postId);
+                    try {
+                        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'blogPosts'), where('slug', '==', postId));
+                        const postSnap = await getDocs(q);
+                        if (!postSnap.empty) {
+                            botPost = { id: postSnap.docs[0].id, ...postSnap.docs[0].data() };
+                            window.updateSEO(botPost);
+                            
+                            // Force modal open for bot screenshots
+                            setTimeout(() => {
+                                const modal = document.getElementById('reader-modal');
+                                if (modal) {
+                                    modal.classList.remove('hidden-modal');
+                                    modal.style.display = 'flex';
+                                    
+                                    const imgEl = document.getElementById('modal-img');
+                                    const titleEl = document.getElementById('modal-title');
+                                    const contentEl = document.getElementById('modal-content');
+                                    const categoryEl = document.getElementById('modal-category');
+                                    
+                                    if (imgEl) imgEl.src = botPost.imageUrl;
+                                    if (titleEl) titleEl.innerText = botPost.title;
+                                    if (contentEl) contentEl.innerHTML = botPost.content;
+                                    if (categoryEl) categoryEl.innerText = botPost.category;
+                                }
+                            }, 50);
+                        }
+                    } catch (e) {
+                        console.error('Error loading blog post for bot:', e);
+                    }
+                }
+                
+                // Load all posts
                 const postsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'blogPosts'));
                 window.posts = postsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
                 
@@ -580,17 +624,8 @@
                     updateSiteUI();
                 }
 
-                const pathParts = window.location.pathname.split('/');
-                // Hem /blog/slug hem de ?post=ID desteklensin
-                const urlPostId = new URLSearchParams(window.location.search).get('post');
-                const pathPostId = pathParts[1] === 'blog' ? pathParts[2] : null;
-                const postId = pathPostId || urlPostId;
-                
-                // Prerender'dan gelen autoOpen verisi varsa öncelikli kullan
-                if (window.autoOpenPostId && window.autoOpenPostData) {
-                    window.updateSEO(window.autoOpenPostData);
-                    setTimeout(() => window.openReader(window.autoOpenPostId), 100);
-                } else if (postId) {
+                // Handle blog URL opening for non-bots or if bot didn't find post
+                if (!botPost && postId) {
                     let target = window.posts.find(p => p.slug === postId || p.id === postId);
                     if (target) {
                         window.updateSEO(target);
