@@ -1,24 +1,27 @@
-// Basit bir test endpoint'i - prerender'i test etmek için
 export default async function handler(req, res) {
-  console.log('='.repeat(50));
-  console.log('TEST PRERENDER');
-  console.log('='.repeat(50));
-  console.log('req.url:', req.url);
-  console.log('req.method:', req.method);
-  console.log('User-Agent:', req.headers['user-agent']);
-  console.log('X-Vercel-Original-URI:', req.headers['x-vercel-original-uri']);
-  console.log('Referer:', req.headers['referer']);
-  console.log('Host:', req.headers['host']);
-  console.log('All headers:', Object.keys(req.headers));
+  const info = {
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    url: req.url,
+    path: req.path,
+    query: req.query,
+    headers: {
+      'user-agent': req.headers['user-agent'],
+      'x-vercel-original-uri': req.headers['x-vercel-original-uri'],
+      'referer': req.headers['referer'],
+      'host': req.headers['host']
+    },
+    env: {
+      'NODE_ENV': process.env.NODE_ENV,
+      'VERCEL_REGION': process.env.VERCEL_REGION
+    }
+  };
+  
+  console.log('Test endpoint called:', JSON.stringify(info, null, 2));
   
   res.json({
-    message: 'Prerender test endpoint',
-    url: req.url,
-    headers: {
-      userAgent: req.headers['user-agent'],
-      xVercelOriginalUri: req.headers['x-vercel-original-uri'],
-      referer: req.headers['referer'],
-      host: req.headers['host']
-    }
+    success: true,
+    message: 'Test endpoint is working!',
+    info: info
   });
 }
