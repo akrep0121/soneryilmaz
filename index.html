@@ -8,13 +8,26 @@
     <meta name="description" id="site-description" content="Finansal piyasaları kod ve yapay zeka ile analiz eden, halka arz ve borsa stratejileri geliştiren junior yazılımcı portfolyosu.">
     <meta name="keywords" id="site-keywords" content="Soner Yılmaz, Borsa, Yatırım, Halka Arz, BES, Yazılım, Yapay Zeka, FinTech">
     <meta name="author" content="Soner Yılmaz">
-    <link id="site-canonical" rel="canonical" href="https://soneryilmaz.netlify.app">
+    <link id="site-canonical" rel="canonical" href="https://soneryilmaz.vercel.app">
     
     <meta name="google-site-verification" content="o7JFkAV3NWZulmJ98WX6VZ6mnVI60aVpPMr2u-ozLPU" />
     
-    <meta property="og:title" id="og-title" content="Soner Yılmaz | Portfolyo">
-    <meta property="og:description" id="og-description" content="Yatırım ve Yazılım Dünyasına Dair Analizler">
-    <meta property="og:type" content="article">
+    <!-- Open Graph -->
+    <meta property="og:title" id="og-title" content="Soner Yılmaz | FinTech Geliştiricisi & Yatırım Analisti">
+    <meta property="og:description" id="og-description" content="Finansal piyasaları kod ve yapay zeka ile analiz eden, halka arz ve borsa stratejileri geliştiren junior yazılımcı portfolyosu.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" id="og-url" content="https://soneryilmaz.vercel.app">
+    <meta property="og:image" id="og-image" content="https://soneryilmaz.vercel.app/og-image.jpg">
+    <meta property="og:site_name" content="Soner Yılmaz">
+    <meta property="og:locale" content="tr_TR">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" id="twitter-card" content="summary_large_image">
+    <meta name="twitter:site" content="@soner_yilmz">
+    <meta name="twitter:creator" content="@soner_yilmz">
+    <meta name="twitter:title" id="twitter-title" content="Soner Yılmaz | FinTech Geliştiricisi & Yatırım Analisti">
+    <meta name="twitter:description" id="twitter-description" content="Finansal piyasaları kod ve yapay zeka ile analiz eden, halka arz ve borsa stratejileri geliştiren junior yazılımcı portfolyosu.">
+    <meta name="twitter:image" id="twitter-image" content="https://soneryilmaz.vercel.app/og-image.jpg">
 
     <script type="application/ld+json" id="structured-data-ld"></script>
 
@@ -431,6 +444,13 @@
             const keyEl = document.getElementById('site-keywords') || document.querySelector('meta[name="keywords"]');
             const ogTitle = document.getElementById('og-title') || document.querySelector('meta[property="og:title"]');
             const ogDesc = document.getElementById('og-description') || document.querySelector('meta[property="og:description"]');
+            const ogUrl = document.getElementById('og-url') || document.querySelector('meta[property="og:url"]');
+            const ogImage = document.getElementById('og-image') || document.querySelector('meta[property="og:image"]');
+            const ogType = document.getElementById('og-type') || document.querySelector('meta[property="og:type"]');
+            const twitterCard = document.getElementById('twitter-card') || document.querySelector('meta[name="twitter:card"]');
+            const twitterTitle = document.getElementById('twitter-title') || document.querySelector('meta[name="twitter:title"]');
+            const twitterDesc = document.getElementById('twitter-description') || document.querySelector('meta[name="twitter:description"]');
+            const twitterImage = document.getElementById('twitter-image') || document.querySelector('meta[name="twitter:image"]');
             const canonEl = document.getElementById('site-canonical') || document.querySelector('link[rel="canonical"]');
             const jsonLdEl = document.getElementById('structured-data-ld');
 
@@ -438,8 +458,29 @@
                 document.title = "Soner Yılmaz | FinTech Geliştiricisi & Yatırım Analisti";
                 if (descEl) descEl.content = 'Finansal piyasaları kod ve yapay zeka ile analiz eden, halka arz ve borsa stratejileri geliştiren junior yazılımcı portfolyosu.';
                 if (keyEl) keyEl.content = 'Soner Yılmaz, Borsa, Yatırım, Halka Arz, BES, Yazılım, Yapay Zeka, FinTech';
-                if (ogTitle) ogTitle.content = "Soner Yılmaz | Portfolyo";
-                if (jsonLdEl) jsonLdEl.textContent = "";
+                if (ogTitle) ogTitle.content = "Soner Yılmaz | FinTech Geliştiricisi & Yatırım Analisti";
+                if (ogDesc) ogDesc.content = 'Finansal piyasaları kod ve yapay zeka ile analiz eden, halka arz ve borsa stratejileri geliştiren junior yazılımcı portfolyosu.';
+                if (ogUrl) ogUrl.content = window.location.origin;
+                if (ogType) ogType.content = 'website';
+                if (twitterCard) twitterCard.content = 'summary_large_image';
+                if (twitterTitle) twitterTitle.content = "Soner Yılmaz | FinTech Geliştiricisi & Yatırım Analisti";
+                if (twitterDesc) twitterDesc.content = 'Finansal piyasaları kod ve yapay zeka ile analiz eden, halka arz ve borsa stratejileri geliştiren junior yazılımcı portfolyosu.';
+                if (canonEl) canonEl.href = window.location.origin;
+                if (jsonLdEl) {
+                    const homeSchema = {
+                        "@context": "https://schema.org",
+                        "@type": "WebSite",
+                        "name": "Soner Yılmaz",
+                        "url": window.location.origin,
+                        "description": "Finansal piyasaları kod ve yapay zeka ile analiz eden, halka arz ve borsa stratejileri geliştiren junior yazılımcı portfolyosu.",
+                        "author": {
+                            "@type": "Person",
+                            "name": "Soner Yılmaz",
+                            "jobTitle": "FinTech Geliştiricisi & Yatırım Analisti"
+                        }
+                    };
+                    jsonLdEl.textContent = JSON.stringify(homeSchema);
+                }
                 return;
             }
 
@@ -454,6 +495,13 @@
             if (keyEl) keyEl.content = `${post.category}, ${post.title}, Soner Yılmaz`;
             if (ogTitle) ogTitle.content = newTitle;
             if (ogDesc) ogDesc.content = summary;
+            if (ogUrl) ogUrl.content = postUrl;
+            if (ogImage) ogImage.content = post.imageUrl;
+            if (ogType) ogType.content = 'article';
+            if (twitterCard) twitterCard.content = 'summary_large_image';
+            if (twitterTitle) twitterTitle.content = newTitle;
+            if (twitterDesc) twitterDesc.content = summary;
+            if (twitterImage) twitterImage.content = post.imageUrl;
             if (canonEl) canonEl.href = postUrl;
 
             const schemaData = {
@@ -462,8 +510,21 @@
                 "headline": post.title,
                 "description": summary,
                 "image": post.imageUrl,
-                "author": { "@type": "Person", "name": "Soner Yılmaz" },
-                "datePublished": post.createdAt ? new Date(post.createdAt.seconds * 1000).toISOString() : new Date().toISOString()
+                "author": { "@type": "Person", "name": "Soner Yılmaz", "jobTitle": "FinTech Geliştiricisi & Yatırım Analisti" },
+                "datePublished": post.createdAt ? new Date(post.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
+                "url": postUrl,
+                "publisher": {
+                    "@type": "Organization",
+                    "name": "Soner Yılmaz",
+                    "logo": {
+                        "@type": "ImageObject",
+                        "url": post.imageUrl
+                    }
+                },
+                "mainEntityOfPage": {
+                    "@type": "WebPage",
+                    "@id": postUrl
+                }
             };
             if (jsonLdEl) jsonLdEl.textContent = JSON.stringify(schemaData);
         };
