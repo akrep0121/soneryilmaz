@@ -5,25 +5,26 @@ import { getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, dele
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 interface Post {
   id: string;
-  title: string;
-  content: string;
-  category: string;
-  imageUrl: string;
+  title?: string;
+  content?: string;
+  category?: string;
+  imageUrl?: string;
   slug?: string;
   createdAt?: any;
   views?: number;
 }
 interface Comment {
   id: string;
-  postId: string;
-  author: string;
-  text: string;
+  postId?: string;
+  author?: string;
+  text?: string;
   createdAt?: any;
 }
 interface Subscriber {
   id: string;
-  email: string;
+  email?: string;
   createdAt?: any;
+}
 }
 interface SiteData {
   name?: string;
