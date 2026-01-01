@@ -16,20 +16,28 @@ const firebaseConfig = {
 };
 
 export default async function handler(req, res) {
-  const url = req.url;
+  // Vercel'de rewrite yapıldığında, orijinal URL referer header'ında veya x-vercel-original-uri'de olabilir
+  const originalUrl = req.headers['x-vercel-original-uri'] || req.headers['referer'] || req.url;
+  
+  console.log('Original URL:', originalUrl);
+  console.log('User-Agent:', req.headers['user-agent']);
   
   // Bot detection
   const isBot = detectBot(req.headers['user-agent']);
   
   if (!isBot) {
-    // Normal kullanıcı - 404 döndür (SPA bunu handle edecek)
+    console.log('Not a bot, returning 404');
     return res.status(404).send('Not Found');
   }
   
+  console.log('Bot detected, processing...');
+  
   try {
-    // Blog slug'ını çıkar
-    const slugMatch = url.match(/\/blog\/([^\/\?]+)/);
+    // Blog slug'ını çıkar - orijinal URL'den
+    const slugMatch = originalUrl.match(/\/blog\/([^\/\?]+)/);
     const slug = slugMatch ? slugMatch[1] : null;
+    
+    console.log('Slug:', slug);
     
     let blogPost = null;
     
@@ -41,6 +49,8 @@ export default async function handler(req, res) {
         console.log(`Blog post not found for slug: ${slug}`);
         return res.status(404).send('Blog post not found');
       }
+      
+      console.log('Blog post found:', blogPost.title);
     }
     
     // index.html'i diskten oku
@@ -57,31 +67,34 @@ export default async function handler(req, res) {
       const newTitle = `${blogPost.title} | Soner Yılmaz`;
       const postUrl = `https://soneryilmaz.vercel.app/blog/${blogPost.slug}`;
       
-      // Meta tag'leri güncelle
+      console.log('Updating meta tags...');
+      console.log('Summary:', summary);
+      
+      // Meta tag'leri güncelle - daha güvenli replace
       finalHtml = finalHtml
-        .replace(/<title[^>]*>.*?<\/title>/i, `<title>${newTitle}</title>`)
-        .replace(/<meta\s+name="description"\s+id="site-description"\s+content="[^"]*"[^>]*>/i, 
-                `<meta name="description" id="site-description" content="${summary}">`)
-        .replace(/<meta\s+name="keywords"\s+id="site-keywords"\s+content="[^"]*"[^>]*>/i, 
-                `<meta name="keywords" id="site-keywords" content="${blogPost.category}, ${blogPost.title}, Soner Yılmaz">`)
-        .replace(/<meta\s+property="og:title"\s+id="og-title"\s+content="[^"]*"[^>]*>/i, 
-                `<meta property="og:title" id="og-title" content="${newTitle}">`)
-        .replace(/<meta\s+property="og:description"\s+id="og-description"\s+content="[^"]*"[^>]*>/i, 
-                `<meta property="og:description" id="og-description" content="${summary}">`)
-        .replace(/<meta\s+property="og:url"\s+id="og-url"\s+content="[^"]*"[^>]*>/i, 
-                `<meta property="og:url" id="og-url" content="${postUrl}">`)
-        .replace(/<meta\s+property="og:image"\s+id="og-image"\s+content="[^"]*"[^>]*>/i, 
-                `<meta property="og:image" id="og-image" content="${blogPost.imageUrl}">`)
-        .replace(/<meta\s+property="og:type"\s+id="og-type"\s+content="[^"]*"[^>]*>/i, 
-                `<meta property="og:type" id="og-type" content="article">`)
-        .replace(/<meta\s+name="twitter:title"\s+id="twitter-title"\s+content="[^"]*"[^>]*>/i, 
-                `<meta name="twitter:title" id="twitter-title" content="${newTitle}">`)
-        .replace(/<meta\s+name="twitter:description"\s+id="twitter-description"\s+content="[^"]*"[^>]*>/i, 
-                `<meta name="twitter:description" id="twitter-description" content="${summary}">`)
-        .replace(/<meta\s+name="twitter:image"\s+id="twitter-image"\s+content="[^"]*"[^>]*>/i, 
-                `<meta name="twitter:image" id="twitter-image" content="${blogPost.imageUrl}">`)
-        .replace(/<link\s+id="site-canonical"\s+rel="canonical"\s+href="[^"]*"[^>]*>/i, 
-                `<link id="site-canonical" rel="canonical" href="${postUrl}">`);
+        .replace(/<title>[^<]*<\/title>/i, `<title>${escapeHtml(newTitle)}</title>`)
+        .replace(/name="description"[^>]*content="[^"]*"[^>]*>/i, 
+                `name="description" id="site-description" content="${escapeHtml(summary)}"`)
+        .replace(/name="keywords"[^>]*content="[^"]*"[^>]*>/i, 
+                `name="keywords" id="site-keywords" content="${escapeHtml(blogPost.category)}, ${escapeHtml(blogPost.title)}, Soner Yılmaz"`)
+        .replace(/property="og:title"[^>]*content="[^"]*"[^>]*>/i, 
+                `property="og:title" id="og-title" content="${escapeHtml(newTitle)}"`)
+        .replace(/property="og:description"[^>]*content="[^"]*"[^>]*>/i, 
+                `property="og:description" id="og-description" content="${escapeHtml(summary)}"`)
+        .replace(/property="og:url"[^>]*content="[^"]*"[^>]*>/i, 
+                `property="og:url" id="og-url" content="${escapeHtml(postUrl)}"`)
+        .replace(/property="og:image"[^>]*content="[^"]*"[^>]*>/i, 
+                `property="og:image" id="og-image" content="${escapeHtml(blogPost.imageUrl)}"`)
+        .replace(/property="og:type"[^>]*content="[^"]*"[^>]*>/i, 
+                `property="og:type" id="og-type" content="article"`)
+        .replace(/name="twitter:title"[^>]*content="[^"]*"[^>]*>/i, 
+                `name="twitter:title" id="twitter-title" content="${escapeHtml(newTitle)}"`)
+        .replace(/name="twitter:description"[^>]*content="[^"]*"[^>]*>/i, 
+                `name="twitter:description" id="twitter-description" content="${escapeHtml(summary)}"`)
+        .replace(/name="twitter:image"[^>]*content="[^"]*"[^>]*>/i, 
+                `name="twitter:image" id="twitter-image" content="${escapeHtml(blogPost.imageUrl)}"`)
+        .replace(/rel="canonical"[^>]*href="[^"]*"[^>]*>/i, 
+                `rel="canonical" id="site-canonical" href="${escapeHtml(postUrl)}"`);
       
       // JSON-LD Structured Data güncelle
       const schemaData = {
@@ -108,22 +121,15 @@ export default async function handler(req, res) {
       };
       
       finalHtml = finalHtml.replace(
-        /<script\s+type="application\/ld\+json"\s+id="structured-data-ld"><\/script>/i,
+        /<script type="application\/ld\+json" id="structured-data-ld"><\/script>/i,
         `<script type="application/ld+json" id="structured-data-ld">${JSON.stringify(schemaData)}</script>`
       );
       
-      // Reader modal'ı için otomatik açma script'i ekle
-      const autoOpenScript = `
-        <script>
-          window.autoOpenPostId = '${blogPost.id}';
-          window.autoOpenPostData = ${JSON.stringify(blogPost).replace(/</g, '\\x3c').replace(/>/g, '\\x3e')};
-        </script>
-      </head>`;
-      
-      finalHtml = finalHtml.replace('</head>', autoOpenScript);
+      console.log('Meta tags updated');
     }
     
     // Browser'ı başlat
+    console.log('Starting browser...');
     const browser = await puppeteer.launch({
       args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
       executablePath: await chromium.executablePath(),
@@ -138,11 +144,14 @@ export default async function handler(req, res) {
       timeout: 15000
     });
     
+    console.log('Content set, waiting for scripts...');
+    
     // Ek bekleme süresi - JS tam çalışsın diye
     await page.waitForTimeout(1000);
     
     // Blog post varsa, modal'ı aç
     if (blogPost) {
+      console.log('Opening modal for blog post...');
       await page.evaluate((postId) => {
         // Modal'ı aç ve içeriği doldur
         const modal = document.getElementById('reader-modal');
@@ -173,10 +182,13 @@ export default async function handler(req, res) {
       await page.waitForTimeout(500);
     }
     
+    console.log('Getting rendered HTML...');
+    
     // Render edilmiş HTML'i al
     const html = await page.content();
     
     await browser.close();
+    console.log('Browser closed');
     
     // Render edilmiş HTML döndür
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -184,9 +196,20 @@ export default async function handler(req, res) {
     
   } catch (error) {
     console.error('Prerender error:', error);
+    console.error(error.stack);
     // Hata durumunda 404 döndür
     res.status(404).send('Blog post not found');
   }
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 async function getBlogPostBySlug(slug) {

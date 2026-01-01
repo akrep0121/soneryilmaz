@@ -5,6 +5,10 @@
       "destination": "/api/sitemap.xml.js"
     },
     {
+      "source": "/blog/:slug*",
+      "destination": "/api/prerender"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
