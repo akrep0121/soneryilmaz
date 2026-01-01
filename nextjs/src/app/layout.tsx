@@ -53,8 +53,12 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="overflow-x-hidden">
+      <body className="overflow-x-hidden bg-black text-[#ededed]">
         {children}
+        <Script 
+          src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" 
+          strategy="beforeInteractive" 
+        />
         <Script src="https://unpkg.com/lucide@latest" />
       </body>
     </html>
