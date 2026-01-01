@@ -1,5 +1,10 @@
 'use client';
+
 import { useEffect, useState, useRef } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, where } from 'firebase/firestore';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+
 export default function Home() {
   const [posts, setPosts] = useState([]);
   const [siteData, setSiteData] = useState({});
@@ -16,52 +21,48 @@ export default function Home() {
   const featuredPostRef = useRef(null);
   
   useEffect(() => {
-    import('firebase/app').then(({ initializeApp }) => {
-      import('firebase/firestore').then(({ getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, where })) => {
-        import('firebase/auth').then(({ getAuth, signInAnonymously, onAuthStateChanged }) => {
-          const firebaseConfig = {
-            apiKey: "AIzaSyDtN5CJ4fvWMCkGImJEMfKQrIiBdeKZKqI",
-            authDomain: "portfolyo-145a9.firebaseapp.com",
-            projectId: "portfolyo-145a9",
-            storageBucket: "portfolyo-145a9.firebasestorage.app",
-            messagingSenderId: "230588990982",
-            appId: "1:230588990982:web:d7fbb79d94bb4cc9b22587",
-            measurementId: "G-TKWT71JERB"
-          };
-          
-          const app = initializeApp(firebaseConfig);
-          const auth = getAuth(app);
-          const db = getFirestore(app);
-          const appId = "portfolyo-145a9";
-          
-          signInAnonymously(auth);
-          
-          onAuthStateChanged(auth, async (user) => {
-            if (user) {
-              const postsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'blogPosts'));
-              const postsData = postsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-              setPosts(postsData);
-              
-              const settingsSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'siteSettings', 'config'));
-              if (settingsSnap.exists()) {
-                setSiteData(settingsSnap.data());
-              }
-              
-              const commentsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'comments'));
-              setComments(commentsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-              
-              const subsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'subscribers'));
-              setSubscribers(subsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-            }
-          });
-        });
-      });
+    const firebaseConfig = {
+      apiKey: "AIzaSyDtN5CJ4fvWMCkGImJEMfKQrIiBdeKZKqI",
+      authDomain: "portfolyo-145a9.firebaseapp.com",
+      projectId: "portfolyo-145a9",
+      storageBucket: "portfolyo-145a9.firebasestorage.app",
+      messagingSenderId: "230588990982",
+      appId: "1:230588990982:web:d7fbb79d94bb4cc9b22587",
+      measurementId: "G-TKWT71JERB"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = "portfolyo-145a9";
+    
+    signInAnonymously(auth);
+    
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const postsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'blogPosts'));
+        const postsData = postsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setPosts(postsData);
+        
+        const settingsSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'siteSettings', 'config'));
+        if (settingsSnap.exists()) {
+          setSiteData(settingsSnap.data());
+        }
+        
+        const commentsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'comments'));
+        setComments(commentsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        
+        const subsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'subscribers'));
+        setSubscribers(subsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }
     });
   }, []);
+
   const createSlug = (title) => {
     const trMap = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'Ç': 'c', 'Ğ': 'g', 'İ': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u' };
     return title.split('').map(c => trMap[c] || c).join('').toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-');
   };
+
   const getCategoryColor = (category) => {
     const colors = {
       'fintech': 'bg-indigo-500 border-indigo-400 text-indigo-100',
@@ -73,20 +74,24 @@ export default function Home() {
     };
     return colors[category.toLowerCase()] || 'bg-gray-500 border-gray-400 text-gray-100';
   };
+
   const calculateReadingTime = (content) => {
     const cleanText = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     const wordCount = cleanText.split(' ').length;
     return Math.ceil(wordCount / 200) < 1 ? '1' : Math.ceil(wordCount / 200).toString();
   };
+
   const getExcerpt = (content, maxLength = 120) => {
     const cleanText = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     return cleanText.length > maxLength ? cleanText.substring(0, maxLength) + '...' : cleanText;
   };
+
   const formatDate = (timestamp) => {
     if (!timestamp) return '';
     const date = timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp);
     return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   };
+
   const getFilteredAndSortedPosts = () => {
     let filtered = [...posts];
     
@@ -119,6 +124,7 @@ export default function Home() {
     
     return filtered;
   };
+
   const openReader = (id) => {
     setSelectedPostId(id);
     const slug = posts.find(p => p.id === id)?.slug || createSlug(posts.find(p => p.id === id)?.title);
@@ -128,15 +134,18 @@ export default function Home() {
       console.error('URL change error:', e);
     }
   };
+
   const closeModal = (id) => {
     if (id === 'reader-modal') {
       setSelectedPostId(null);
       window.history.pushState({}, '', '/');
     }
   };
+
   const filteredPosts = getFilteredAndSortedPosts();
   const featuredPost = posts.length > 0 ? posts[0] : null;
   const categories = [...new Set(posts.map(p => p.category))];
+
   return (
     <div className="min-h-screen bg-black text-[#ededed]">
       <div id="scroll-progress" className="fixed top-0 left-0 h-0.5 bg-indigo-500 z-[100] transition-all duration-100" style={{width: '0%'}}></div>
@@ -154,6 +163,7 @@ export default function Home() {
           </div>
         </div>
       </nav>
+
       <section id="home" className="pt-80 pb-40 px-6 max-w-6xl mx-auto text-center relative z-10">
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-indigo-500/5 blur-[150px] rounded-full opacity-50 animate-pulse"></div>
@@ -183,6 +193,7 @@ export default function Home() {
           </button>
         </div>
       </section>
+
       <section id="blog-section" className="py-60 px-6 max-w-[1600px] mx-auto border-t border-white/[0.05]">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 lg:gap-12">
           <div className="lg:col-span-3">
@@ -208,6 +219,7 @@ export default function Home() {
                   </select>
                 </div>
               </div>
+
               <div className="flex flex-wrap gap-3 mb-10">
                 <button 
                   onClick={() => setCurrentCategory('all')}
@@ -233,6 +245,7 @@ export default function Home() {
                   </button>
                 ))}
               </div>
+
               <div className="w-full relative border border-white/10 bg-white/[0.01] rounded-2xl p-2 transition-all mb-12 focus-within:border-indigo-500 focus-within:bg-white/[0.03]">
                 <svg className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                 <input 
@@ -251,6 +264,7 @@ export default function Home() {
                   </button>
                 )}
               </div>
+
               {featuredPost && (
                 <div className="mb-16">
                   <div 
@@ -292,6 +306,7 @@ export default function Home() {
                   </div>
                 </div>
               )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredPosts.slice(1, displayedPosts + 1).map((post, index) => {
                   const categoryClass = getCategoryColor(post.category);
@@ -345,6 +360,7 @@ export default function Home() {
                   );
                 })}
               </div>
+
               {filteredPosts.length > displayedPosts + 1 && (
                 <div className="text-center mt-12">
                   <button 
@@ -356,6 +372,7 @@ export default function Home() {
                   </button>
                 </div>
               )}
+
               {filteredPosts.length === 0 && (
                 <div className="col-span-full text-center py-20">
                   <svg className="w-16 h-16 text-gray-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M9 9l4 4"/><path d="m13 9-4 4"/></svg>
@@ -370,6 +387,7 @@ export default function Home() {
               )}
             </div>
           </div>
+
           <div className="lg:col-span-1 space-y-8">
             <div className="bg-white/[0.02] border border-white/[0.05] p-8 rounded-[2.5rem] sticky top-32 space-y-8">
               <div className="space-y-6">
@@ -407,6 +425,7 @@ export default function Home() {
                   ))}
                 </div>
               </div>
+
               <div className="border-t border-white/[0.05] pt-8 space-y-6">
                 <h3 className="text-lg font-black uppercase tracking-widest text-white flex items-center gap-3">
                   <svg className="w-5 h-5 text-purple-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
@@ -437,6 +456,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+
       <section id="about-section" className="py-60 px-6 bg-white/[0.01] border-y border-white/[0.05] relative text-center">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-6xl md:text-8xl font-black tracking-tighter text-white uppercase mb-20">Motivasyon</h2>
@@ -445,6 +465,7 @@ export default function Home() {
           </p>
         </div>
       </section>
+
       <section id="contact-section" className="py-60 px-6 max-w-4xl mx-auto text-center border-t border-white/[0.05]">
         <h2 className="text-7xl font-black tracking-tighter text-white uppercase mb-20">
           BANA <span className="text-indigo-500">ULAŞIN</span>
@@ -480,6 +501,7 @@ export default function Home() {
           </div>
         </form>
       </section>
+
       <footer className="py-40 px-6 border-t border-white/[0.05] bg-[#000]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12">
           <div className="text-[10px] font-black tracking-[0.5em] uppercase text-gray-600 flex items-center gap-4">
@@ -492,6 +514,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
       {selectedPostId && (
         <div className="fixed inset-0 z-[100] bg-black backdrop-blur-3xl flex items-center justify-center p-0 md:p-12 transition-opacity duration-500">
           <div className="bg-[#050505] w-full max-w-7xl h-full md:max-h-[95vh] md:rounded-[4rem] border border-white/10 flex flex-col md:flex-row overflow-hidden shadow-2xl relative">
@@ -605,6 +628,7 @@ export default function Home() {
           </div>
         </div>
       )}
+
       <button 
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         id="back-to-top"
@@ -612,6 +636,7 @@ export default function Home() {
       >
         <svg className="w-5 h-5 mx-auto" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
       </button>
+
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -619,6 +644,7 @@ export default function Home() {
         .blog-card { opacity: 0; transform: translateY(30px); animation: fadeUp 0.6s ease-out forwards; }
         @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
       `}</style>
+
       <script dangerouslySetInnerHTML={{
         __html: `
           window.onscroll = () => {
