@@ -1,8 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/blog/:slug*",
+      "destination": "/api/prerender"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/prerender.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
 }
