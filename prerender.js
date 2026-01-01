@@ -1,5 +1,7 @@
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
+const fs = require('fs');
+const path = require('path');
 const { initializeApp } = require('firebase/app');
 const { getAuth, signInAnonymously } = require('firebase/auth');
 const { getFirestore, collection, getDocs, query, where } = require('firebase/firestore');
@@ -20,13 +22,13 @@ export default async function handler(req, res) {
   const isBot = detectBot(req.headers['user-agent']);
   
   if (!isBot) {
-    // Normal kullanıcı - index.html döndür
-    return res.redirect('/');
+    // Normal kullanıcı - 404 döndür (SPA bunu handle edecek)
+    return res.status(404).send('Not Found');
   }
   
   try {
     // Blog slug'ını çıkar
-    const slugMatch = url.match(/\/blog\/([^\/]+)/);
+    const slugMatch = url.match(/\/blog\/([^\/\?]+)/);
     const slug = slugMatch ? slugMatch[1] : null;
     
     let blogPost = null;
@@ -34,6 +36,91 @@ export default async function handler(req, res) {
     // Eğer blog URL'si ise, Firebase'den veri çek
     if (slug) {
       blogPost = await getBlogPostBySlug(slug);
+      
+      if (!blogPost) {
+        console.log(`Blog post not found for slug: ${slug}`);
+        return res.status(404).send('Blog post not found');
+      }
+    }
+    
+    // index.html'i diskten oku
+    const htmlPath = path.join(process.cwd(), 'index.html');
+    const indexHtml = fs.readFileSync(htmlPath, 'utf-8');
+    
+    // Blog post varsa, HTML'i güncelle
+    let finalHtml = indexHtml;
+    
+    if (blogPost) {
+      // İçerik özetini oluştur
+      const cleanContent = blogPost.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      const summary = cleanContent.substring(0, 160) + "...";
+      const newTitle = `${blogPost.title} | Soner Yılmaz`;
+      const postUrl = `https://soneryilmaz.vercel.app/blog/${blogPost.slug}`;
+      
+      // Meta tag'leri güncelle
+      finalHtml = finalHtml
+        .replace(/<title[^>]*>.*?<\/title>/i, `<title>${newTitle}</title>`)
+        .replace(/<meta\s+name="description"\s+id="site-description"\s+content="[^"]*"[^>]*>/i, 
+                `<meta name="description" id="site-description" content="${summary}">`)
+        .replace(/<meta\s+name="keywords"\s+id="site-keywords"\s+content="[^"]*"[^>]*>/i, 
+                `<meta name="keywords" id="site-keywords" content="${blogPost.category}, ${blogPost.title}, Soner Yılmaz">`)
+        .replace(/<meta\s+property="og:title"\s+id="og-title"\s+content="[^"]*"[^>]*>/i, 
+                `<meta property="og:title" id="og-title" content="${newTitle}">`)
+        .replace(/<meta\s+property="og:description"\s+id="og-description"\s+content="[^"]*"[^>]*>/i, 
+                `<meta property="og:description" id="og-description" content="${summary}">`)
+        .replace(/<meta\s+property="og:url"\s+id="og-url"\s+content="[^"]*"[^>]*>/i, 
+                `<meta property="og:url" id="og-url" content="${postUrl}">`)
+        .replace(/<meta\s+property="og:image"\s+id="og-image"\s+content="[^"]*"[^>]*>/i, 
+                `<meta property="og:image" id="og-image" content="${blogPost.imageUrl}">`)
+        .replace(/<meta\s+property="og:type"\s+id="og-type"\s+content="[^"]*"[^>]*>/i, 
+                `<meta property="og:type" id="og-type" content="article">`)
+        .replace(/<meta\s+name="twitter:title"\s+id="twitter-title"\s+content="[^"]*"[^>]*>/i, 
+                `<meta name="twitter:title" id="twitter-title" content="${newTitle}">`)
+        .replace(/<meta\s+name="twitter:description"\s+id="twitter-description"\s+content="[^"]*"[^>]*>/i, 
+                `<meta name="twitter:description" id="twitter-description" content="${summary}">`)
+        .replace(/<meta\s+name="twitter:image"\s+id="twitter-image"\s+content="[^"]*"[^>]*>/i, 
+                `<meta name="twitter:image" id="twitter-image" content="${blogPost.imageUrl}">`)
+        .replace(/<link\s+id="site-canonical"\s+rel="canonical"\s+href="[^"]*"[^>]*>/i, 
+                `<link id="site-canonical" rel="canonical" href="${postUrl}">`);
+      
+      // JSON-LD Structured Data güncelle
+      const schemaData = {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "headline": blogPost.title,
+        "description": summary,
+        "image": blogPost.imageUrl,
+        "author": { "@type": "Person", "name": "Soner Yılmaz", "jobTitle": "FinTech Geliştiricisi & Yatırım Analisti" },
+        "datePublished": blogPost.createdAt ? new Date(blogPost.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
+        "url": postUrl,
+        "publisher": {
+          "@type": "Organization",
+          "name": "Soner Yılmaz",
+          "logo": {
+            "@type": "ImageObject",
+            "url": blogPost.imageUrl
+          }
+        },
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": postUrl
+        }
+      };
+      
+      finalHtml = finalHtml.replace(
+        /<script\s+type="application\/ld\+json"\s+id="structured-data-ld"><\/script>/i,
+        `<script type="application/ld+json" id="structured-data-ld">${JSON.stringify(schemaData)}</script>`
+      );
+      
+      // Reader modal'ı için otomatik açma script'i ekle
+      const autoOpenScript = `
+        <script>
+          window.autoOpenPostId = '${blogPost.id}';
+          window.autoOpenPostData = ${JSON.stringify(blogPost).replace(/</g, '\\x3c').replace(/>/g, '\\x3e')};
+        </script>
+      </head>`;
+      
+      finalHtml = finalHtml.replace('</head>', autoOpenScript);
     }
     
     // Browser'ı başlat
@@ -45,110 +132,46 @@ export default async function handler(req, res) {
     
     const page = await browser.newPage();
     
-    // Sayfayı yükle
-    await page.goto(`https://soneryilmaz.vercel.app${url}`, {
-      waitUntil: 'networkidle2',
-      timeout: 30000
+    // Set custom content
+    await page.setContent(finalHtml, {
+      waitUntil: 'networkidle0',
+      timeout: 15000
     });
     
-    // JavaScript ile meta tag'leri güncelle
+    // Ek bekleme süresi - JS tam çalışsın diye
+    await page.waitForTimeout(1000);
+    
+    // Blog post varsa, modal'ı aç
     if (blogPost) {
-      await page.evaluate((post) => {
-        // Meta tag'leri güncelle
-        const descEl = document.querySelector('meta[name="description"]');
-        const keyEl = document.querySelector('meta[name="keywords"]');
-        const ogTitle = document.querySelector('meta[property="og:title"]');
-        const ogDesc = document.querySelector('meta[property="og:description"]');
-        const ogImage = document.querySelector('meta[property="og:image"]');
-        const canonEl = document.querySelector('link[rel="canonical"]');
-        const twitterCard = document.querySelector('meta[name="twitter:card"]');
-        const twitterTitle = document.querySelector('meta[name="twitter:title"]');
-        const twitterDesc = document.querySelector('meta[name="twitter:description"]');
-        const twitterImage = document.querySelector('meta[name="twitter:image"]');
-        
-        // İçerik özetini oluştur
-        const cleanContent = post.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        const summary = cleanContent.substring(0, 160) + "...";
-        const newTitle = `${post.title} | Soner Yılmaz`;
-        
-        // Meta tags
-        if (descEl) descEl.content = summary;
-        if (keyEl) keyEl.content = `${post.category}, ${post.title}, Soner Yılmaz`;
-        
-        // Open Graph
-        if (ogTitle) ogTitle.content = newTitle;
-        if (ogDesc) ogDesc.content = summary;
-        if (ogImage) ogImage.content = post.imageUrl;
-        
-        // Twitter Card
-        if (twitterCard) twitterCard.content = 'summary_large_image';
-        if (twitterTitle) twitterTitle.content = newTitle;
-        if (twitterDesc) twitterDesc.content = summary;
-        if (twitterImage) twitterImage.content = post.imageUrl;
-        
-        // Canonical URL
-        if (canonEl) canonEl.href = `https://soneryilmaz.vercel.app/blog/${post.slug}`;
-        
-        // Page title
-        document.title = newTitle;
-        
-        // JSON-LD Structured Data ekle/güncelle
-        const jsonLdEl = document.getElementById('structured-data-ld');
-        const schemaData = {
-          "@context": "https://schema.org",
-          "@type": "BlogPosting",
-          "headline": post.title,
-          "description": summary,
-          "image": post.imageUrl,
-          "author": { "@type": "Person", "name": "Soner Yılmaz" },
-          "datePublished": post.createdAt ? new Date(post.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
-          "url": `https://soneryilmaz.vercel.app/blog/${post.slug}`,
-          "publisher": {
-            "@type": "Organization",
-            "name": "Soner Yılmaz",
-            "logo": {
-              "@type": "ImageObject",
-              "url": post.imageUrl
-            }
-          }
-        };
-        
-        if (jsonLdEl) {
-          jsonLdEl.textContent = JSON.stringify(schemaData);
-        } else {
-          const script = document.createElement('script');
-          script.type = 'application/ld+json';
-          script.id = 'structured-data-ld';
-          script.textContent = JSON.stringify(schemaData);
-          document.head.appendChild(script);
+      await page.evaluate((postId) => {
+        // Modal'ı aç ve içeriği doldur
+        const modal = document.getElementById('reader-modal');
+        if (modal) {
+          modal.classList.remove('hidden-modal');
+          modal.style.display = 'flex';
         }
         
-        // Modal içeriğini doğrudan body'ye ekle (screenshot için)
-        const readerModal = document.createElement('div');
-        readerModal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999;';
-        readerModal.innerHTML = `
-          <div style="display: flex; height: 100%; max-width: 1400px; margin: 0 auto; color: #fff;">
-            <div style="flex: 1; position: relative;">
-              <img src="${post.imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
-              <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 2rem; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);">
-                <span style="background: #4f46e5; padding: 0.5rem 1.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 900; text-transform: uppercase;">${post.category}</span>
-                <h1 style="font-size: 3rem; font-weight: 900; margin-top: 1rem; line-height: 1.1;">${post.title.toUpperCase()}</h1>
-              </div>
-            </div>
-            <div style="flex: 1; padding: 3rem; overflow-y: auto; font-family: sans-serif;">
-              <div style="color: #9ca3af; line-height: 1.8; font-size: 1.125rem;">
-                ${post.content}
-              </div>
-            </div>
-          </div>
-        `;
-        document.body.appendChild(readerModal);
-        
-      }, blogPost);
+        // Modal içeriğini güncelle
+        const post = window.autoOpenPostData;
+        if (post) {
+          const imgEl = document.getElementById('modal-img');
+          if (imgEl) imgEl.src = post.imageUrl;
+          
+          const titleEl = document.getElementById('modal-title');
+          if (titleEl) titleEl.innerText = post.title;
+          
+          const contentEl = document.getElementById('modal-content');
+          if (contentEl) contentEl.innerHTML = post.content;
+          
+          const categoryEl = document.getElementById('modal-category');
+          if (categoryEl) {
+            categoryEl.innerText = post.category;
+          }
+        }
+      }, blogPost.id);
+      
+      await page.waitForTimeout(500);
     }
-    
-    // Ek bekleme süresi - JS tam çalışsın diye
-    await page.waitForTimeout(2000);
     
     // Render edilmiş HTML'i al
     const html = await page.content();
@@ -161,8 +184,8 @@ export default async function handler(req, res) {
     
   } catch (error) {
     console.error('Prerender error:', error);
-    // Hata durumunda normal index.html döndür
-    res.redirect('/');
+    // Hata durumunda 404 döndür
+    res.status(404).send('Blog post not found');
   }
 }
 

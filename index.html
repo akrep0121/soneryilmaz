@@ -585,7 +585,12 @@
                 const urlPostId = new URLSearchParams(window.location.search).get('post');
                 const pathPostId = pathParts[1] === 'blog' ? pathParts[2] : null;
                 const postId = pathPostId || urlPostId;
-                if (postId) {
+                
+                // Prerender'dan gelen autoOpen verisi varsa öncelikli kullan
+                if (window.autoOpenPostId && window.autoOpenPostData) {
+                    window.updateSEO(window.autoOpenPostData);
+                    setTimeout(() => window.openReader(window.autoOpenPostId), 100);
+                } else if (postId) {
                     let target = window.posts.find(p => p.slug === postId || p.id === postId);
                     if (target) {
                         window.updateSEO(target);
